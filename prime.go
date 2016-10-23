@@ -7,18 +7,11 @@ import (
 	"math/rand"
 )
 
-const (
-	BitSize = 512
-)
-
 var bigZero = big.NewInt(0)
 var bigOne = big.NewInt(1)
 var bigTwo = big.NewInt(2)
 var bigThree = big.NewInt(3)
 var bigFour = big.NewInt(4)
-
-var bigSize = big.NewInt(BitSize)
-var maxNumber = (big.NewInt(0)).Exp(bigTwo, bigSize, nil)
 
 func euclides(aa, bb *big.Int) (c, x, y *big.Int) {
 	// Extended euclidean algorithmn.
@@ -58,16 +51,24 @@ func invMod(n, m *big.Int) *big.Int {
 	return x
 }
 
-func NewPrime() *big.Int {
+func NewPrime(bitSize int64) *big.Int {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	n := big.NewInt(0)
 
+	if bitSize < 0 {
+		panic("NewPrime: Invalid bitsize.")
+	}
+
+	n := big.NewInt(0)
+	max := big.NewInt(0)
+	bigSize := big.NewInt(bitSize)
+
+	max.Exp(bigTwo, bigSize, nil)
 	for {
 		// Get new random.
-		n.Rand(r, maxNumber)
+		n.Rand(r, max)
 
 		// Check number quality.
-		if !qualityNumber(n) {
+		if !qualityNumber(n, bigSize) {
 			continue
 		}
 
@@ -80,7 +81,7 @@ func NewPrime() *big.Int {
 	return n
 }
 
-func qualityNumber(n *big.Int) bool {
+func qualityNumber(n, bigSize *big.Int) bool {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	z := big.NewInt(0)
 	min := big.NewInt(0)
