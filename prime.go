@@ -11,13 +11,74 @@ const (
 	BitSize = 512
 )
 
-var bigSize = big.NewInt(BitSize)
-
 var bigZero = big.NewInt(0)
 var bigOne = big.NewInt(1)
 var bigTwo = big.NewInt(2)
 var bigThree = big.NewInt(3)
 var bigFour = big.NewInt(4)
+
+var bigSize = big.NewInt(BitSize)
+var maxNumber = (big.NewInt(0)).Exp(bigTwo, bigSize, nil)
+
+func euclides(aa, bb *big.Int) (c, x, y *big.Int) {
+	// Extended euclidean algorithmn.
+	a, b := big.NewInt(0), big.NewInt(0)
+	z, q := big.NewInt(0), big.NewInt(0)
+
+	a.Set(aa)
+	b.Set(bb)
+
+	x, xx, y, yy := big.NewInt(0), big.NewInt(1), big.NewInt(1), big.NewInt(0)
+
+	for b.Cmp(bigOne) > 0 {
+		q.DivMod(a, b, z)
+		a.Set(b)
+		b.Set(z)
+
+		z.Mul(q, x)
+		z.Sub(xx, z)
+		xx.Set(x)
+		x.Set(z)
+
+		z.Mul(q, y)
+		z.Sub(yy, z)
+		yy.Set(y)
+		y.Set(z)
+	}
+
+	return a, x, y
+}
+
+func invMod(n, m *big.Int) *big.Int {
+	_, x, _ := euclides(n, m)
+
+	// Inverse modulus.
+	x.Mod(x, m)
+
+	return x
+}
+
+func NewPrime() *big.Int {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	n := big.NewInt(0)
+
+	for {
+		// Get new random.
+		n.Rand(r, maxNumber)
+
+		// Check number quality.
+		if !qualityNumber(n) {
+			continue
+		}
+
+		// Survive 10 rounds of MillerRabin.
+		if millerRabin(n, 10) {
+			break
+		}
+	}
+
+	return n
+}
 
 func qualityNumber(n *big.Int) bool {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -58,29 +119,6 @@ func qualityNumber(n *big.Int) bool {
 	// Good number.
 	return true
 }
-
-func NewPrime() string {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	n := big.NewInt(0)
-
-	for {
-		// Get new random.
-		n.Rand(r, bigSize)
-
-		// Check number quality.
-		if !qualityNumber(n) {
-			continue
-		}
-
-		// Survive 10 rounds of MillerRabin.
-		if millerRabin(n, 10) {
-			break
-		}
-	}
-
-	return n.String()
-}
-
 
 func millerRabin(n *big.Int, k int) bool {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
