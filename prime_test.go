@@ -33,7 +33,7 @@ func TestNewPrime(t *testing.T) {
 	for i := 0; i < MaxPrimes; i++ {
 		n := NewPrime(int64(TestBitSize))
 		if !n.ProbablyPrime(10) {
-				t.Errorf("NewPrime generated a composite number %s", n.String())
+			t.Errorf("NewPrime generated a composite number %s", n.String())
 		}
 	}
 }
@@ -41,19 +41,19 @@ func TestNewPrime(t *testing.T) {
 func TestQualityNumber(t *testing.T) {
 	// Test specific cases
 	cases := []struct {
-		in int64
+		in   int64
 		want bool
 	}{
 		{0, false},
 		{1, false},
-		{TestBitSize/2, true},
+		{TestBitSize / 2, true},
 	}
 	for _, c := range cases {
 		z := big.NewInt(c.in)
 		z.Exp(bigTwo, z, nil)
 		out := qualityNumber(z, big.NewInt(int64(TestBitSize)))
 		if out != c.want {
-			t.Errorf("qualityNumber(2^%s) == %v, want %v", c.in, out, c.want)
+			t.Errorf("qualityNumber(2^%q) == %v, want %v", c.in, out, c.want)
 		}
 	}
 }
@@ -61,7 +61,7 @@ func TestQualityNumber(t *testing.T) {
 func TestMillerRabin(t *testing.T) {
 	// Test specific cases
 	cases := []struct {
-		in int64
+		in   int64
 		want bool
 	}{
 		{0, false},
@@ -74,7 +74,7 @@ func TestMillerRabin(t *testing.T) {
 	for _, c := range cases {
 		out := millerRabin(big.NewInt(c.in), 10)
 		if out != c.want {
-			t.Errorf("millerRabin(%q) == %q, want %q", c.in, out, c.want)
+			t.Errorf("millerRabin(%q) == %v, want %v", c.in, out, c.want)
 		}
 	}
 

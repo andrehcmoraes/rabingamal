@@ -11,8 +11,8 @@ import (
 func TestRabin(t *testing.T) {
 	pub, prv := RabinNewKeyPair(TestBitSize)
 
-	// Test specific cases
-	cases := []int64 {
+	// Test specific cases.
+	cases := []int64{
 		1, 2,
 	}
 	for _, v := range cases {
@@ -25,7 +25,7 @@ func TestRabin(t *testing.T) {
 		}
 	}
 
-	// Random tests.
+	// Naive, random tests.
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for i := int64(0); i < 100; i++ {
 		m := big.NewInt(0)

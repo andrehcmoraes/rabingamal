@@ -1,116 +1,101 @@
 // Package rabingamal combines the asymmetric algorithms Rabin and ElGamal.
 package rabingamal
 
+// File rabin.go implements the Rabin cryptosystem.
+
 import (
 	"bytes"
 	"math/big"
 )
 
 const (
+	// LastBytes defines how many bytes should be repeated.
 	LastBytes = 8
 )
 
-type RabinPrivateKey struct {
-	n, p, q *big.Int
-}
-
+// RabinPublicKey holds the public key used in RabinWrap.
 type RabinPublicKey struct {
 	n *big.Int
 }
 
+// RabinPrivateKey holds the private key used in RabinUnwrap.
+type RabinPrivateKey struct {
+	n, p, q, yp, yq *big.Int
+}
+
+// RabinNewKeyPair outputs a new RabinKeyPair with given bitSize.
 func RabinNewKeyPair(bitSize int64) (*RabinPublicKey, *RabinPrivateKey) {
 	p := NewPrime(bitSize)
 	q := NewPrime(bitSize)
 	n := big.NewInt(0)
 
+	// n = p * q, the public key.
 	n.Mul(p, q)
 
-	return &RabinPublicKey{n:big.NewInt(0).Set(n)},
-		&RabinPrivateKey{n:n, p:p, q:q}
+	// Pre-compute yp and yq
+	_, yp, yq := xGCD(p, q)
+
+	return &RabinPublicKey{n: big.NewInt(0).Set(n)},
+		&RabinPrivateKey{n: n, p: p, q: q, yp: yp, yq: yq}
 }
 
-func RabinWrap(m *big.Int, pub *RabinPublicKey) (*big.Int) {
+// RabinWrap wraps a plaintext 'm' with a given Rabin public key 'k'.
+func RabinWrap(m *big.Int, k *RabinPublicKey) *big.Int {
 	c := big.NewInt(0)
 
 	// Add leading zeros bytes until we have at least 64 bits.
-	c.Mod(m, pub.n)
-	b := c.Bytes()
-	l := LastBytes - len(b)
-	if l > 0 {
-		z := make([]byte, l)
-		for i := range z {
-			z[i] = 0
-		}
-		b = append(z, b ... )
-	}
+	c.Mod(m, k.n)
+	b := leadZeroes(c.Bytes(), LastBytes)
 
 	// Repeat last 64 bits.
-	l = len(b) - LastBytes
-	b = append(b, b[:LastBytes] ... )
+	b = append(b, b[:LastBytes]...)
 	c.SetBytes(b)
-	if c.Cmp(pub.n) > 0 {
-		panic("KeyPair is too small to handle this message.")
+	if c.Cmp(k.n) > 0 {
+		panic("Rabin KeyPair is too small to handle this message.")
 	}
 
-	c.Exp(c, bigTwo, pub.n)
-	return c
+	// c^2 mod n is the ciphertext.
+	return c.Exp(c, bigTwo, k.n)
 }
 
-func RabinUnwrap(c *big.Int, prv *RabinPrivateKey) (*big.Int) {
-	xp, xq := big.NewInt(0), big.NewInt(0)
-	yp, yq := big.NewInt(0), big.NewInt(0)
-	mp, mq := big.NewInt(0), big.NewInt(0)
+// RabinUnwrap unwraps a cryptotext 'c' with a given Rabin private key 'k'.
+func RabinUnwrap(c *big.Int, k *RabinPrivateKey) *big.Int {
 	r, s := big.NewInt(0), big.NewInt(0)
 	m := big.NewInt(0)
 
-	xp.Add(prv.p, bigOne)
-	xq.Add(prv.q, bigOne)
+	// Modulus square root.
+	mp, mq := modSquareRoot(c, k.p), modSquareRoot(c, k.q)
 
-	xp.Div(xp, bigFour)
-	xq.Div(xq, bigFour)
+	// Find the roots.
+	mq.Mul(mq, k.yp)
+	mq.Mul(mq, k.p)
 
-	mp.Exp(c, xp, prv.p)
-	mq.Exp(c, xq, prv.q)
-
-	_, yp, yq = euclides(prv.p, prv.q)
-
-	mq.Mul(mq, yp)
-	mq.Mul(mq, prv.p)
-
-	mp.Mul(mp, yq)
-	mp.Mul(mp, prv.q)
+	mp.Mul(mp, k.yq)
+	mp.Mul(mp, k.q)
 
 	r.Add(mq, mp)
-	r.Mod(r, prv.n)
+	r.Mod(r, k.n)
 
 	s.Sub(mq, mp)
-	s.Mod(s, prv.n)
+	s.Mod(s, k.n)
 
 	// All four roots.
 	roots := [](*big.Int){
 		big.NewInt(0).Set(r),
-		big.NewInt(0).Sub(prv.n, r),
+		big.NewInt(0).Sub(k.n, r),
 		big.NewInt(0).Set(s),
-		big.NewInt(0).Sub(prv.n, s),
+		big.NewInt(0).Sub(k.n, s),
 	}
 
 	// Find the correct root.
 	for _, root := range roots {
-		b := root.Bytes()
-		l := 2*LastBytes - len(b)
 		// Add leading zeroes.
-		if l > 0 {
-			z := make([]byte, l)
-			for i := range z {
-				z[i] = 0
-			}
-			b = append(z, b ... )
-		}
+		b := leadZeroes(root.Bytes(), 2*LastBytes)
 		repeat := len(b) - LastBytes
+		// Should only happen on the correct root.
 		if bytes.Equal(b[:LastBytes], b[repeat:]) {
 			b = b[:repeat]
-			m.SetBytes(b)
-			return m
+			return m.SetBytes(b)
 		}
 	}
 

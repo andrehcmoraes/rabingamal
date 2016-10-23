@@ -1,95 +1,79 @@
 // Package rabingamal combines the asymmetric algorithms Rabin and ElGamal.
 package rabingamal
 
+// File rabingamal.go implements the Rabin-ElGamal cryptosystem union.
+
 import (
 	"math/big"
 )
 
-type RabinGamalPublicKey struct {
+// RabGamPublicKey holds the public key used in RabinGamalWrap.
+type RabGamPublicKey struct {
 	rab *RabinPublicKey
 	gam *ElGamalPublicKey
 	siz int
 }
 
-type RabinGamalPrivateKey struct {
+// RabGamPrivateKey holds the private key used in RabinGamalUnwrap.
+type RabGamPrivateKey struct {
 	rab *RabinPrivateKey
 	gam *ElGamalPrivateKey
 	siz int
 }
 
-func RabinGamalNewKeyPair(bitSize int64) (*RabinGamalPublicKey, *RabinGamalPrivateKey) {
-	pubRab, prvRab := RabinNewKeyPair(2*bitSize)
+// RabGamNewKeyPair outputs a new RabinGamalKeyPair with given bitSize.
+func RabGamNewKeyPair(bitSize int64) (*RabGamPublicKey, *RabGamPrivateKey) {
+	pubRab, prvRab := RabinNewKeyPair(2 * bitSize)
 	pubGam, prvGam := ElGamalNewKeyPair(bitSize)
 
-	size := big.NewInt(2*bitSize)
-	size.Exp(bigTwo, size, nil)
-	l := len(size.Bytes())
-	l = l - l % 2
+	// Number of bytes required to store a number up to 2^(2*bitSize).
+	l := int(bitSize / 4)
 
-	return &RabinGamalPublicKey{rab:pubRab, gam:pubGam, siz:l},
-		&RabinGamalPrivateKey{rab:prvRab, gam:prvGam, siz:l}
+	return &RabGamPublicKey{rab: pubRab, gam: pubGam, siz: l},
+		&RabGamPrivateKey{rab: prvRab, gam: prvGam, siz: l}
 }
 
-func RabinGamalWrap(m *big.Int, pub *RabinGamalPublicKey) *big.Int {
-	c1, c2 := ElGamalWrap(m, pub.gam)
+// RabGamWrap wraps a plaintext 'm' with a given RabinGamal public key 'k'.
+func RabGamWrap(m *big.Int, k *RabGamPublicKey) *big.Int {
+	// Wrap with ElGamal.
+	c1, c2 := ElGamalWrap(m, k.gam)
 
-	b1 := c1.Bytes()
-	b2 := c2.Bytes()
+	b1 := leadZeroes(c1.Bytes(), k.siz)
+	b2 := leadZeroes(c2.Bytes(), k.siz)
 
-	l1 := pub.siz - len(b1)
-	l2 := pub.siz - len(b2)
-
-	if l1 > 0 {
-		z := make([]byte, l1)
-		for i := range z {
-			z[i] = 0
-		}
-		b1 = append(z, b1 ... )
-	}
-
-	if l2 > 0 {
-		z := make([]byte, l2)
-		for i := range z {
-			z[i] = 0
-		}
-		b2 = append(z, b2 ... )
-	}
-
-	b := make([]byte, 0)
-	b = append(b, b1[:pub.siz/2] ... )
-	b = append(b, b2[:pub.siz/2] ... )
-	b = append(b, b1[pub.siz/2:] ... )
-	b = append(b, b2[pub.siz/2:] ... )
+	// b = HIGH(c1) || HIGH(c2) || LOW(c1) || LOW(c2)
+	var b []byte
+	l := k.siz / 2
+	b = append(b, b1[:l]...)
+	b = append(b, b2[:l]...)
+	b = append(b, b1[l:]...)
+	b = append(b, b2[l:]...)
 
 	c := big.NewInt(0)
 	c.SetBytes(b)
 
-	return RabinWrap(c, pub.rab)
+	// Wrap with Rabin.
+	return RabinWrap(c, k.rab)
 }
 
-func RabinGamalUnwrap(c *big.Int, prv *RabinGamalPrivateKey) *big.Int {
-	x := RabinUnwrap(c, prv.rab)
-	b := x.Bytes()
+// RabGamUnwrap unwraps a cryptotext 'c' with a given private key 'k'.
+func RabGamUnwrap(c *big.Int, k *RabGamPrivateKey) *big.Int {
+	// Unwrap with Rabin.
+	x := RabinUnwrap(c, k.rab)
+	b := leadZeroes(x.Bytes(), 2*k.siz)
 
-	l := 2*prv.siz - len(b)
-	if l > 0 {
-		z := make([]byte, l)
-		for i := range z {
-			z[i] = 0
-		}
-		b = append(z, b ... )
-	}
-
-	l = prv.siz/2
+	// Recover c1 and c2.
+	l := k.siz / 2
 	b1, b2 := make([]byte, 0), make([]byte, 0)
-	b1 = append(b1, b[:l] ... )
-	b2 = append(b2, b[l:2*l] ... )
-	b1 = append(b1, b[2*l:3*l] ... )
-	b2 = append(b2, b[3*l:] ... )
+	b1 = append(b1, b[:l]...)
+	b2 = append(b2, b[l:2*l]...)
+	b1 = append(b1, b[2*l:3*l]...)
+	b2 = append(b2, b[3*l:]...)
 
 	c1, c2 := big.NewInt(0), big.NewInt(0)
 	c1.SetBytes(b1)
 	c2.SetBytes(b2)
 
-	return ElGamalUnwrap(c1, c2, prv.gam)
+	// Unwrap with ElGamal.
+	return ElGamalUnwrap(c1, c2, k.gam)
 }

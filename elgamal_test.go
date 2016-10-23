@@ -11,7 +11,7 @@ import (
 func TestElGamal(t *testing.T) {
 	pub, prv := ElGamalNewKeyPair(TestBitSize)
 
-	// Random tests.
+	// Naive, random tests.
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for i := int64(0); i < 100; i++ {
 		m := big.NewInt(0)

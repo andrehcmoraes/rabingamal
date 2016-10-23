@@ -1,20 +1,46 @@
 // Package rabingamal combines the asymmetric algorithms Rabin and ElGamal.
 package rabingamal
 
+// File prime.go implements various prime and crypto utils.
+
 import (
-	"time"
 	"math/big"
 	"math/rand"
+	"time"
 )
 
+// Useful handles.
 var bigZero = big.NewInt(0)
 var bigOne = big.NewInt(1)
 var bigTwo = big.NewInt(2)
 var bigThree = big.NewInt(3)
 var bigFour = big.NewInt(4)
 
-func euclides(aa, bb *big.Int) (c, x, y *big.Int) {
-	// Extended euclidean algorithmn.
+// modSquareRoot returns the square root 'x' mod 'm', assuming that
+// 'm' is a prime such that m = 3 mod 4.
+func modSquareRoot(x, m *big.Int) *big.Int {
+	z, a := big.NewInt(0), big.NewInt(0)
+
+	z.Add(m, bigOne)
+	z.Div(z, bigFour)
+	return a.Exp(x, z, m)
+}
+
+// leadZeroes pad array 'a' with leading zeroes up to length 'l'.
+func leadZeroes(a []byte, l int) []byte {
+	l -= len(a)
+	if l > 0 {
+		z := make([]byte, l)
+		for i := range z {
+			z[i] = 0
+		}
+		a = append(z, a...)
+	}
+	return a
+}
+
+// xGCD implements the extended euclidean algorithmn on given numbers.
+func xGCD(aa, bb *big.Int) (c, x, y *big.Int) {
 	a, b := big.NewInt(0), big.NewInt(0)
 	z, q := big.NewInt(0), big.NewInt(0)
 
@@ -42,15 +68,14 @@ func euclides(aa, bb *big.Int) (c, x, y *big.Int) {
 	return a, x, y
 }
 
-func invMod(n, m *big.Int) *big.Int {
-	_, x, _ := euclides(n, m)
-
-	// Inverse modulus.
-	x.Mod(x, m)
-
-	return x
+// invMod implements the modular inverse x^(-1) mod m
+func invMod(x, m *big.Int) *big.Int {
+	_, y, _ := xGCD(x, m)
+	return y.Mod(y, m)
 }
 
+// NewPrime generates a new prime 'p' with given bitSize.
+// The prime is guaranteed to be such p = 3 mod 4.
 func NewPrime(bitSize int64) *big.Int {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
@@ -81,6 +106,7 @@ func NewPrime(bitSize int64) *big.Int {
 	return n
 }
 
+// qualityNumber increases the chance of a random number being prime.
 func qualityNumber(n, bigSize *big.Int) bool {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	z := big.NewInt(0)
@@ -89,7 +115,6 @@ func qualityNumber(n, bigSize *big.Int) bool {
 	// min = 2^(size/2), the median element.
 	min.Div(bigSize, bigTwo)
 	min.Exp(bigTwo, min, nil)
-
 
 	// Reject small numbers.
 	if n.Cmp(min) < 0 {
@@ -121,11 +146,12 @@ func qualityNumber(n, bigSize *big.Int) bool {
 	return true
 }
 
+// millerRabin performs the MillerRabin test to check if a number is prime.
 func millerRabin(n *big.Int, k int) bool {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	z := big.NewInt(0)
 
-	// Negatives and smaller numbers.
+	// Reject negatives and smaller numbers.
 	if n.Cmp(bigTwo) < 0 {
 		return false
 	}
@@ -144,9 +170,7 @@ func millerRabin(n *big.Int, k int) bool {
 	q.Sub(n, bigFour)
 
 	// p = 2^s * d.
-	d := big.NewInt(0)
-	s := big.NewInt(0)
-
+	d, s := big.NewInt(0), big.NewInt(0)
 	for {
 		z.Add(s, bigOne)
 		z.Exp(bigTwo, z, nil)
@@ -166,7 +190,7 @@ func millerRabin(n *big.Int, k int) bool {
 		a.Rand(r, q)
 		a.Add(a, bigTwo)
 
-		// x = a ^ d mod n
+		// x = a ^ d mod n.
 		x.Exp(a, d, n)
 
 		// x == 1 mod n or x == (n - 1) mod n.
@@ -191,6 +215,7 @@ func millerRabin(n *big.Int, k int) bool {
 			}
 		}
 
+		// May yet be prime.
 		if skip {
 			continue
 		}
