@@ -11,7 +11,7 @@ import (
 func TestInvMod(t *testing.T) {
 	m := NewPrime(int64(TestBitSize))
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < MaxPrimes; i++ {
 		a := NewPrime(int64(TestBitSize))
 		if a.Cmp(m) > 0 {
 			z := big.NewInt(0)
@@ -30,7 +30,7 @@ func TestInvMod(t *testing.T) {
 }
 
 func TestNewPrime(t *testing.T) {
-	for i := 0; i < 10; i++ {
+	for i := 0; i < MaxPrimes; i++ {
 		n := NewPrime(int64(TestBitSize))
 		if !n.ProbablyPrime(10) {
 				t.Errorf("NewPrime generated a composite number %s", n.String())
@@ -46,7 +46,7 @@ func TestQualityNumber(t *testing.T) {
 	}{
 		{0, false},
 		{1, false},
-		{256, true},
+		{TestBitSize/2, true},
 	}
 	for _, c := range cases {
 		z := big.NewInt(c.in)

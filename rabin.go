@@ -33,7 +33,8 @@ func RabinWrap(m *big.Int, pub *RabinPublicKey) (*big.Int) {
 	c := big.NewInt(0)
 
 	// Add leading zeros bytes until we have at least 64 bits.
-	b := m.Bytes()
+	c.Mod(m, pub.n)
+	b := c.Bytes()
 	l := LastBytes - len(b)
 	if l > 0 {
 		z := make([]byte, l)
@@ -47,6 +48,9 @@ func RabinWrap(m *big.Int, pub *RabinPublicKey) (*big.Int) {
 	l = len(b) - LastBytes
 	b = append(b, b[:LastBytes] ... )
 	c.SetBytes(b)
+	if c.Cmp(pub.n) > 0 {
+		panic("KeyPair is too small to handle this message.")
+	}
 
 	c.Exp(c, bigTwo, pub.n)
 	return c
